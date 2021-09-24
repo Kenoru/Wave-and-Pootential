@@ -1,0 +1,254 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConsoleApp1
+{
+    class ComplexNumber
+    {
+        double real;
+        double imag;
+
+        public ComplexNumber(double real, double imag)
+        {
+            this.real = real;
+            this.imag = imag;
+        }
+
+        public ComplexNumber(ComplexNumber a)
+        {
+            this.real = a.real;
+            this.imag = a.imag;
+        }
+
+        public void Print()
+        {
+            Console.WriteLine($"{this.real}+i*{this.imag}");
+        }
+
+        public double NormaofFunction()
+        {
+            return Math.Pow(this.real, 2) + Math.Pow(this.imag, 2);
+        }
+
+        public ComplexNumber ConjugateFunction()
+        {
+            this.imag = -1 * this.imag;
+            return this;
+        }
+
+        public ComplexNumber Multiply(double param)
+        {
+                this.real *= param;
+                this.imag *= param;
+            return this;
+        }
+
+        public ComplexNumber Multiply(ComplexNumber param)
+        {
+            double realt = this.real;
+            double imagt = this.imag;
+            this.real = realt * param.real - imagt*param.imag;
+            this.imag *= realt * param.imag + imagt * param.real;
+            return this;
+        }
+
+        public ComplexNumber Divide(double param)
+        {
+            if (param == 0) return null;
+            this.real /= param;
+            this.imag /= param;
+            return this;
+        }
+
+        public ComplexNumber Divide(ComplexNumber param)
+        {
+            if (param.imag == 0 && param.real == 0) return null;
+            this.real *= param.real/param.NormaofFunction();
+            this.imag *= -param.imag/param.NormaofFunction();
+            return this;
+        }
+
+        public ComplexNumber Sum(double param)
+        {
+            this.real += param;
+            return this;
+        }
+
+        public ComplexNumber Sum(ComplexNumber param)
+        {
+            this.real += param.real;
+            this.imag += param.imag;
+            return this;
+        }
+
+        public ComplexNumber Difference(double param)
+        {
+            this.real -= param;
+            return this;
+        }
+
+        public ComplexNumber Difference(ComplexNumber param)
+        {
+            this.real -= param.real;
+            this.imag -= param.imag;
+            return this;
+        }
+
+        public ComplexNumber Exp(double param)
+        {
+            this.real = Math.Cos(param);
+            this.imag = Math.Sin(param);
+            return this;
+        }
+
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            ComplexNumber i = new ComplexNumber(0, 1);
+            double pi = 3.1415926, wavenumber = 7.07, Vmax = 24;
+            int N = 20000;
+            double pocketwidth = 3, potentialwidth = 2, zeropoint=40, gap=3;
+            double pocketstartpoint = 4 * pocketwidth + zeropoint;
+            double potentialstartpoint = 8 * pocketwidth + gap + zeropoint + 4 * potentialwidth;
+
+            double[] vescoef = new double[5] { 7, 32, 12, 32, 14 };
+
+            ComplexNumber[] wavefunc = new ComplexNumber[N];
+
+            Console.WriteLine($"{pocketstartpoint},\t{potentialstartpoint}");
+
+            double wavelength = 2 * pi / wavenumber;
+            double dx = wavelength / 100;
+            double dt = dx / wavenumber / 2;
+
+            Console.WriteLine($"dt={dt},\tdx={dx}");
+
+
+            ComplexNumber Acoef = i.Multiply(dt);
+            Acoef.Divide(4 * Math.Pow(dx, 2));
+            ComplexNumber[] BCoef = new ComplexNumber[N];
+            for(int j=0; j<N; j++)
+            {
+                BCoef[j]=new ComplexNumber(Acoef.Multiply(2).Sum(1));
+            }
+            ComplexNumber[] Dcoef = new ComplexNumber[N];
+
+            //FileStream fstream = new FileStream("Distrib.dat", FileMode.Create);
+            //create file
+
+            for (int j = 0; j < N; j++)
+            {
+                double partofpotentialpoint = j * dx;
+                double valueofpotentialpoint = Vmax * Math.Exp(-Math.Pow(partofpotentialpoint - potentialstartpoint, 2) / Math.Pow(potentialwidth,2));
+                Dcoef[j] = i.Multiply(dt*valueofpotentialpoint/2);
+                BCoef[j].Sum(Dcoef[j]);
+                Dcoef[j].Multiply(-1).Sum(1);
+                //zapisy v file
+                wavefunc[j] = new ComplexNumber(i.Exp(wavenumber * partofpotentialpoint).Multiply(Math.Exp(-Math.Pow(partofpotentialpoint - potentialstartpoint, 2) / Math.Pow(pocketwidth, 2))));
+            }
+
+            Console.WriteLine($"Integral = {IntegralCalculation(dx, N, wavefunc, vescoef)}");
+            Console.WriteLine(PulseCalculation(dx, N, wavefunc, vescoef));
+
+            int Npri = 100;
+            int Ntime = 0;
+            int Mcicle = 0;
+
+            //do
+            //{
+            //    TimeStepFunction(N, wavefunc, BCoef, Dcoef, Acoef);
+            //    Ntime++;
+            //    if (Ntime < Npri) continue;
+            //    Ntime = 0;
+            //    Mcicle++;
+            //    // Otkrity noviy file
+            //    for(int j=0; j<N; j++)
+            //    {
+
+            //    }
+            //} while (true);
+
+            Console.ReadKey();
+        }
+
+        static double IntegralCalculation(double dx, int N, ComplexNumber[] func, double[] vescoef)
+        {
+            double integral = 0;
+
+            int kod = 0;
+
+            for(int j=0; j<N; j++)
+            {
+                if (kod == 5) kod = 1;
+                integral += vescoef[kod] * func[j].NormaofFunction();
+                kod++;
+                if (j == N - 1) integral -= 7 * vescoef[kod] * func[j].NormaofFunction();
+            }
+
+            integral = integral * dx / 22.5;
+
+            return integral;
+        }
+
+        static void TimeStepFunction(int N, ComplexNumber[] func, ComplexNumber[] Bcoef, ComplexNumber[] Dcoef, ComplexNumber Acoef)
+        {
+            ComplexNumber[] p = new ComplexNumber[N];
+            ComplexNumber[] q = new ComplexNumber[N];
+
+            p[0] = new ComplexNumber(0, 0);
+            q[0] = new ComplexNumber(0, 0);
+
+            for (int j = 1; j < N - 1; j++) 
+            {
+                ComplexNumber temp = Dcoef[j].Multiply(func[j]).Sum(Acoef.Multiply(func[j+1].Sum(func[j].Multiply(-2)).Sum(func[j-1])));
+                ComplexNumber calculationparam = Bcoef[j].Sum(Acoef.Multiply(p[j - 1]).Multiply(-1));
+                p[j] = Acoef.Divide(calculationparam);
+                q[j] = calculationparam.Sum(Acoef.Multiply(q[j - 1])).Divide(calculationparam);
+            }
+
+            func[N - 1] = new ComplexNumber(0, 0);
+
+            for (int j = N-2; j >=0; j--)
+            {
+                func[j] = func[j + 1].Multiply(p[j]).Sum(q[j]);
+            }
+        }
+
+        static double PulseCalculation(double dx, int N, ComplexNumber[] func, double[] vescoef)
+        {
+            double pulse = 0;
+
+            int kod = 0;
+
+            for (int j = 1; j < N-1; j++)
+            {
+                ComplexNumber temp = new ComplexNumber(func[j].ConjugateFunction().Multiply(func[j + 1].Difference(func[j - 1])));
+                temp.Divide(2 * dx);
+                temp.Multiply(new ComplexNumber(0, 1));
+
+                if (kod == 5) kod = 1;
+
+                pulse = pulse + Math.Sqrt(temp.NormaofFunction()) * vescoef[kod];
+
+                //if (j>= 10000) temp.Print();
+
+                kod++;
+
+                if (j == N - 2) pulse = pulse - 7 * Math.Sqrt(temp.NormaofFunction());
+            }
+
+            pulse = pulse * dx / 22.5;
+
+            pulse = pulse / IntegralCalculation(dx, N, func, vescoef);
+
+            return pulse;
+        }
+    }
+}
